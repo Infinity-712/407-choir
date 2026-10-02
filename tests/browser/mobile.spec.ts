@@ -24,9 +24,18 @@ test('phone supports joystick walking, touch interaction and playable piano keys
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:210,y:400,id:2},{x:300,y:400,id:3}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:170,y:400,id:2},{x:340,y:400,id:3}]});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await page.waitForTimeout(250);expect(position).toEqual(stopped);
+  await page.getByRole('button',{name:'更多',exact:true}).tap();
   await page.getByRole('button',{name:'房间地点',exact:true}).tap();
   await page.locator('.room-places button').filter({hasText:'黑色钢琴'}).tap();
   await expect(page.locator('.piano-panel')).toBeVisible({timeout:30000});expect(mode).toBe('piano');
+  await page.getByRole('button',{name:'更多',exact:true}).tap();
+  await expect(page.getByRole('button',{name:'房间地点',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'声音与画质',exact:true}).tap();
+  await expect(page.locator('.piano-panel')).toBeHidden();
+  await page.keyboard.press('a');
+  await expect(page.locator('.piano-key.pressed')).toHaveCount(0);
+  await page.getByRole('button',{name:'关闭面板',exact:true}).tap();
+  await expect(page.locator('.piano-panel')).toBeVisible();
   expect(await page.locator('.piano-key').count()).toBe(12);
   const key=(await page.getByRole('button',{name:'琴键 60',exact:true}).boundingBox())!;expect(key.width).toBeGreaterThan(40);
   const second=(await page.getByRole('button',{name:'琴键 64',exact:true}).boundingBox())!;

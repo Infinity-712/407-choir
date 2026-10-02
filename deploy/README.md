@@ -49,6 +49,14 @@ tail -n 80 deploy/state/renew.log
 
 ## 更新与回退
 
+### 2026-10-03 移动界面版本
+
+当前Compose指定前端镜像 `choir407:frontend-20261003-mobile-r1`，继承前一性能版本，保留其旧哈希资源。发布目录为 `releases/frontend-20261003-mobile-r1`，发布包SHA256为 `e90bae170d06ce450598bd2897ddf2a78fc3d88b700effd3d5d4d83e4ca7d924`。
+
+沿用下述保留连接的发布方式，新增JS/CSS、manifest.json和icons；通过HTTPS逐文件核对哈希后原子切换首页和Compose。app/turn/proxy的容器ID、启动时间、Nginx PID均未变；没有重启现有服务。公网手机全屏、主屏资源、菜单和摇杆验收通过。
+
+该发布目录内的 `index.before.html`、`compose.before.yaml` 是回到前一性能版本的回退文件；新旧哈希资源都保留。后续重建proxy将使用上述移动版本镜像，当前运行容器仍显示最初镜像名称，具体机制见下一节。
+
 ### 2026-10-03 前端性能版本
 
 本次前端镜像为 `choir407:frontend-20261003-r1`，通过 `Dockerfile.frontend` 继承 `choir407:20261001`。新 JS、CSS、LOD worker 和首页在独立发布目录构建；未变化的 GLB、布局及 Draco 解码器沿用基础镜像。发布包 SHA256：`344f8b0c5586c041dc3ded6c87f36f57b2f610ed1e22ab507922e98cb4e964e8`。

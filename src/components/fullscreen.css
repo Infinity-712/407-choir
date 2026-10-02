@@ -1,0 +1,25 @@
+.mobile-fullscreen-button{display:none!important}
+@media(pointer:coarse),(max-width:760px){
+  .room-header-actions .mobile-fullscreen-button,.site-header .mobile-fullscreen-button{display:grid!important;place-items:center;width:44px;height:44px;padding:0;flex-shrink:0;background:linear-gradient(#fffdf4ed,#fffdf4ed) center/36px 36px no-repeat;border:0;border-radius:13px;color:#8f7a9e;box-shadow:none;pointer-events:auto}
+  .room-header-actions .mobile-fullscreen-button>svg,.site-header .mobile-fullscreen-button>svg{width:18px;height:18px}
+}
+.fullscreen-guide{padding:0;border:1px solid #fff;border-radius:20px;background:#fffcf7;color:#574b62;width:min(370px,calc(100vw - 28px));max-height:calc(100dvh - 28px);margin:auto;box-shadow:0 18px 65px #3523423b;overflow:auto;overscroll-behavior:contain;pointer-events:auto}
+.fullscreen-guide::backdrop{background:#3024367a}
+.fullscreen-guide-content{padding:19px}
+.fullscreen-guide-content>header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fullscreen-guide-content h2{font-size:17px;line-height:1.4;margin:0;font-weight:600}
+.fullscreen-guide-content>header>.icon-button{width:40px;height:40px;flex-shrink:0}
+.fullscreen-guide-content p{font-size:12px;line-height:1.7;margin:8px 0 13px;color:#877891}
+.fullscreen-guide-step{padding:10px 13px;background:#f1ebf6;border-radius:12px;margin-top:10px}
+.fullscreen-guide-step strong{font-size:12px;font-weight:600}
+.fullscreen-guide-step p{margin:4px 0 0;color:#766582}
+.fullscreen-guide-content .fullscreen-guide-note{font-size:11px;margin:14px 0}
+.fullscreen-guide-confirm{width:100%;min-height:42px;justify-content:center}
+@media(max-height:430px){
+  .fullscreen-guide{width:min(480px,calc(100vw - 32px));max-height:calc(100dvh - 16px)}
+  .fullscreen-guide-content{padding:12px 17px}
+  .fullscreen-guide-content h2{font-size:15px}
+  .fullscreen-guide-content p{font-size:11px;margin:5px 0 8px}
+  .fullscreen-guide-step{padding:7px 11px;margin-top:7px}
+  .fullscreen-guide-content .fullscreen-guide-note{margin:8px 0}
+}

@@ -4,7 +4,10 @@ async function enter(page:Page){
   await page.getByLabel('你的昵称').fill('画质测试');
   await page.getByLabel('房间号',{exact:true}).fill('quality-'+Date.now());
   await page.getByRole('button',{name:'走，去小屋'}).click();
+  await expect(page.locator('.room-dock')).toBeVisible();
   await expect(page.locator('.room-loading')).toHaveCount(0,{timeout:60000});
+  const more=page.getByRole('button',{name:'更多',exact:true});
+  if(await more.isVisible())await more.click();
   await page.getByRole('button',{name:'声音与画质',exact:true}).click();
 }
 

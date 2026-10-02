@@ -1,4 +1,4 @@
-FROM choir407:20261001
+FROM choir407:frontend-20261003-r1
 # Build in a dedicated release directory containing verified dist/ output.
 # Unchanged room assets can be inherited from the base after SHA256 validation.
 COPY dist/ /srv/407/dist/
