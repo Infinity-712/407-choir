@@ -2,12 +2,14 @@ import { sanitizeAvatar } from '../shared/avatar.ts';
 import { canStand, groundHeight, stepPosition } from '../shared/movement.ts';
 import { CHAT_DURATION_MS, CHAT_MAX_CODEPOINTS, CHOIR_POSES, CONDUCTOR_GESTURES, DEFAULT_BUBBLE_STYLE, sanitizeBubbleStyle } from '../shared/social.ts';
 import type { Ack, BeatPattern, ChoirPose, ConductorGesture, Emote, InteractionAsset, PianoEvent, Player, RoomLayout, RoomState, Vec3, VoiceSignal } from '../shared/protocol.ts';
+import { getMinigameLayout, isGameChair, isMusicalChairsActive } from '../shared/minigames.ts';
+import { MusicalChairsGame } from './minigames.ts';
 
-export type RoomOptions = { now?: () => number; onPiano?: (roomId: string, event: PianoEvent) => void };
+export type RoomOptions = { now?: () => number; random?: () => number; onPiano?: (roomId: string, event: PianoEvent) => void };
 type Piano = { held: Set<number>; sounding: Set<number>; sustain: boolean };
 type Bucket = { at: number; tokens: number };
 type Session = { roomId: string; moveAt: number; moveCredit: number; rates: Map<string, Bucket> };
-type Room = { id: string; players: Map<string, Player>; occupancy: Map<string, string>; pianos: Map<string, Piano>; conductor: RoomState['conductor']; dirty: boolean };
+type Room = { id: string; players: Map<string, Player>; occupancy: Map<string, string>; pianos: Map<string, Piano>; conductor: RoomState['conductor']; minigame: MusicalChairsGame; dirty: boolean };
 const ok = (): Ack => ({ ok: true });
 const fail = (error: string): Ack => ({ ok: false, error });
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -22,12 +24,14 @@ export class RoomController {
   private readonly assets: Map<string, InteractionAsset>;
   private readonly now: () => number;
   private readonly onPiano?: RoomOptions['onPiano'];
+  private readonly random: () => number;
   private readonly joinRates = new Map<string, Bucket>();
 
   constructor(private readonly layout: RoomLayout, options: RoomOptions = {}) {
     this.assets = new Map(layout.assets.map(asset => [asset.id, asset]));
     this.now = options.now ?? Date.now;
     this.onPiano = options.onPiano;
+    this.random = options.random ?? Math.random;
   }
 
   join(id: string, payload: unknown): Ack {
@@ -46,11 +50,16 @@ export class RoomController {
     this.leave(id);
     let room = this.rooms.get(payload.roomId);
     if (!room) {
-      room = { id: payload.roomId, players: new Map(), occupancy: new Map(), pianos: new Map(), conductor: { ownerId: null, bpm: 90, playing: false, startAt: 0, beats: 4, gesture: 'beat', gestureAt: 0 }, dirty: true };
+      room = { id: payload.roomId, players: new Map(), occupancy: new Map(), pianos: new Map(), conductor: { ownerId: null, bpm: 90, playing: false, startAt: 0, beats: 4, gesture: 'beat', gestureAt: 0 }, minigame: undefined!, dirty: true };
+      const created = room;
+      room.minigame = new MusicalChairsGame({ now: this.now, random: this.random, players: room.players, occupancy: room.occupancy,
+        conductorOccupied: () => !!created.conductor.ownerId || created.occupancy.has('conductor'),
+        release: player => this.release(created, player), relocate: (player, position, yaw) => this.relocate(created, player, position, yaw),
+        repairPositions: () => this.repairPositions(created), dirty: () => { created.dirty = true; } });
       for (const asset of this.assets.values()) if (asset.type === 'piano') room.pianos.set(asset.id, { held: new Set(), sounding: new Set(), sustain: false });
       this.rooms.set(room.id, room);
     }
-    room.players.set(id, { id, name, avatar: sanitizeAvatar(payload.avatar), position, yaw: 0, mode: 'walk', assetId: null, mic: false, emote: null, emoteUntil: 0, pose: null, poseAt: 0, chat: null });
+    room.players.set(id, { id, name, avatar: sanitizeAvatar(payload.avatar), position, positionVersion: 0, yaw: 0, mode: 'walk', assetId: null, mic: false, emote: null, emoteUntil: 0, pose: null, poseAt: 0, chat: null });
     this.sessions.set(id, { roomId: room.id, moveAt: this.now(), moveCredit: .6, rates: new Map() });
     room.dirty = true;
     return { ok: true, id, state: this.getState(room.id) };
@@ -60,6 +69,7 @@ export class RoomController {
     const session = this.sessions.get(id), room = session && this.rooms.get(session.roomId), player = room?.players.get(id);
     if (!session || !room || !player) return fail('请先加入房间');
     if (!object(payload)) return fail('消息格式无效');
+    room.minigame.tick(this.now());
     const group = event === 'move' ? 'move' : event === 'piano' ? 'piano' : event === 'chat' ? 'chat' : 'control';
     const piano = event === 'piano' && player.mode === 'piano' && player.assetId && room.occupancy.get(player.assetId) === id ? room.pianos.get(player.assetId) : undefined;
     // Only an actual transition towards silence bypasses the rate limit. Repeated
@@ -73,7 +83,10 @@ export class RoomController {
         return result.ok ? result : { ...result, state: this.getState(room.id) };
       }
       case 'claim': return this.claim(room, player, payload);
-      case 'release': this.release(room, player); return ok();
+      case 'minigame': return room.minigame.action(player, payload);
+      case 'release':
+        if (player.assetId && isGameChair(player.assetId) && isMusicalChairsActive(room.minigame.state)) return fail('本轮抢座后请等待下一轮；如需离开，请使用退赛');
+        this.release(room, player); return ok();
       case 'avatar': player.avatar = sanitizeAvatar(payload.avatar); room.dirty = true; return ok();
       case 'mic':
         if (typeof payload.enabled !== 'boolean') return fail('麦克风状态无效');
@@ -102,6 +115,7 @@ export class RoomController {
   getState(roomId: string): RoomState | undefined {
     const room = this.rooms.get(roomId);
     if (!room) return undefined;
+    room.minigame.tick(this.now());
     this.expireSocial(room, this.now());
     return {
       roomId,
@@ -111,6 +125,7 @@ export class RoomController {
       pedals: Object.fromEntries([...room.pianos].map(([id, piano]) => [id, piano.sustain])),
       pressedNotes: Object.fromEntries([...room.pianos].map(([id, piano]) => [id, [...piano.held].sort((a, b) => a - b)])),
       conductor: { ...room.conductor },
+      minigame: structuredClone(room.minigame.state),
       serverTime: this.now(),
     };
   }
@@ -120,6 +135,7 @@ export class RoomController {
   flushStates(callback: (roomId: string, state: RoomState) => void): void {
     const now = this.now();
     for (const room of this.rooms.values()) {
+      room.minigame.tick(now);
       this.expireSocial(room, now);
       if (room.dirty) { room.dirty = false; callback(room.id, this.getState(room.id)!); }
     }
@@ -158,13 +174,15 @@ export class RoomController {
       previous = point;
     }
     if (distance > session.moveCredit + .0001) return fail('移动速度过快');
+    const effectiveLayout = getMinigameLayout(this.layout, room.minigame.state);
     let next = player.position;
     for (const point of points) {
-      if (!canStand(this.layout, point[0], point[2]) || Math.abs(point[1] - groundHeight(this.layout, point[0], point[2])) > .15) return fail('不能移动到这里');
-      next = stepPosition(this.layout, next, point);
+      if (!canStand(effectiveLayout, point[0], point[2]) || Math.abs(point[1] - groundHeight(effectiveLayout, point[0], point[2])) > .15) return fail('不能移动到这里');
+      next = stepPosition(effectiveLayout, next, point);
       if (Math.hypot(next[0] - point[0], next[2] - point[2]) > .035) return fail('前方有障碍');
     }
     session.moveCredit -= distance;
+    room.minigame.moved(player, player.position, points, distance);
     const yaw = ((data.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     if (distance > .0001 || Math.abs(player.yaw - yaw) > .0001) { player.position = next; player.yaw = yaw; room.dirty = true; }
     return ok();
@@ -172,14 +190,17 @@ export class RoomController {
 
   private claim(room: Room, player: Player, data: Record<string, unknown>): Ack {
     if (typeof data.assetId !== 'string' || reserved.has(data.assetId)) return fail('互动对象无效');
-    const asset = this.assets.get(data.assetId);
+    if (isGameChair(data.assetId)) return room.minigame.claim(player, data);
+    if (isMusicalChairsActive(room.minigame.state) && room.minigame.state.alive.includes(player.id)) return fail('比赛期间参赛者请保持走动，音乐停止后抢游戏椅');
+    const asset = getMinigameLayout(this.layout, room.minigame.state).assets.find(asset => asset.id === data.assetId);
     if (!asset) return fail('互动对象不存在');
     if (player.mode !== 'walk' || player.assetId) return fail('请先离开当前互动');
     if (room.occupancy.has(asset.id)) return fail('这里已经有人了');
     if (Math.hypot(player.position[0] - asset.approach[0], player.position[2] - asset.approach[2]) > asset.radius || Math.abs(player.position[1] - asset.approach[1]) > 1.25) return fail('请先走近一点');
     room.occupancy.set(asset.id, player.id);
-    player.assetId = asset.id; player.position = [...asset.position]; player.yaw = asset.rotation;
+    player.assetId = asset.id;
     player.mode = asset.type === 'chair' ? 'sit' : asset.type === 'piano' ? 'piano' : 'conduct';
+    this.relocate(room, player, asset.position, asset.rotation);
     if (player.mode === 'piano' || player.mode === 'conduct') {
       player.pose = null; player.poseAt = this.now(); player.emote = null; player.emoteUntil = 0;
     }
@@ -190,17 +211,15 @@ export class RoomController {
   }
 
   private release(room: Room, player: Player): void {
-    const asset = player.assetId && this.assets.get(player.assetId);
+    const asset = player.assetId && (this.assets.get(player.assetId) ?? room.minigame.state.chairs.find(chair => chair.id === player.assetId));
     if (asset) {
       if (asset.type === 'piano') this.clearPiano(room, player, asset.id);
       if (asset.type === 'conductor' && room.conductor.ownerId === player.id) {
         room.conductor = { ownerId: null, bpm: room.conductor.bpm, playing: false, startAt: 0, beats: 4, gesture: 'beat', gestureAt: 0 };
       }
       if (room.occupancy.get(asset.id) === player.id) room.occupancy.delete(asset.id);
-      player.position = [...asset.approach];
       player.assetId = null; player.mode = 'walk'; room.dirty = true;
-      const session = this.sessions.get(player.id);
-      if (session) { session.moveAt = this.now(); session.moveCredit = .6; }
+      this.relocate(room, player, asset.approach);
     }
   }
 
@@ -279,11 +298,12 @@ export class RoomController {
 
   private leave(id: string): void {
     const session = this.sessions.get(id), room = session && this.rooms.get(session.roomId), player = room?.players.get(id);
-    if (room && player) { this.release(room, player); room.players.delete(id); room.dirty = true; if (!room.players.size) this.rooms.delete(room.id); }
+    if (room && player) { room.minigame.tick(this.now()); room.minigame.departed(id); this.release(room, player); room.players.delete(id); room.dirty = true; if (!room.players.size) this.rooms.delete(room.id); }
     this.sessions.delete(id);
   }
 
   private chooseSpawn(room: Room | undefined, joiningId: string): Vec3 | null {
+    const effectiveLayout = getMinigameLayout(this.layout, room?.minigame.state);
     const others = [...(room?.players.values() ?? [])].filter(player => player.id !== joiningId);
     for (let ring = 0; ring <= 8; ring++) {
       const offsets: [number, number][] = [];
@@ -291,11 +311,38 @@ export class RoomController {
       offsets.sort((a, b) => Math.hypot(...a) - Math.hypot(...b));
       for (const [dx, dz] of offsets) {
         const x = this.layout.spawn[0] + dx * .65, z = this.layout.spawn[2] + dz * .65;
-        if (!canStand(this.layout, x, z) || others.some(player => Math.hypot(player.position[0] - x, player.position[2] - z) < .55)) continue;
-        return [x, groundHeight(this.layout, x, z), z];
+        if (!canStand(effectiveLayout, x, z) || others.some(player => Math.hypot(player.position[0] - x, player.position[2] - z) < .55)) continue;
+        return [x, groundHeight(effectiveLayout, x, z), z];
       }
     }
     return null;
+  }
+
+  private relocate(room: Room, player: Player, position: Vec3, yaw = player.yaw): void {
+    const effectiveLayout = getMinigameLayout(this.layout, room.minigame.state);
+    if (player.mode === 'walk') {
+      const available = (x: number, z: number) => canStand(effectiveLayout, x, z) && ![...room.players.values()].some(other => other.id !== player.id && Math.hypot(other.position[0] - x, other.position[2] - z) < .45);
+      let target: Vec3 | null = available(position[0], position[2]) ? [position[0], groundHeight(effectiveLayout, position[0], position[2]), position[2]] : null;
+      for (let ring = 1; !target && ring <= 100; ring++) {
+        for (let side = 0; !target && side < 4; side++) for (let offset = -ring; !target && offset < ring; offset++) {
+          const dx = side === 0 ? offset : side === 1 ? ring : side === 2 ? -offset : -ring;
+          const dz = side === 0 ? -ring : side === 1 ? offset : side === 2 ? ring : -offset;
+          const x = position[0] + dx * .2, z = position[2] + dz * .2;
+          if (available(x, z)) target = [x, groundHeight(effectiveLayout, x, z), z];
+        }
+      }
+      player.position = target ?? [...this.layout.spawn];
+    } else player.position = [...position];
+    player.yaw = yaw;
+    player.positionVersion = (player.positionVersion ?? 0) + 1;
+    const session = this.sessions.get(player.id);
+    if (session) { session.moveAt = this.now(); session.moveCredit = .6; }
+    room.minigame.state.teleportVersion++; room.dirty = true;
+  }
+
+  private repairPositions(room: Room): void {
+    const effectiveLayout = getMinigameLayout(this.layout, room.minigame.state);
+    for (const player of room.players.values()) if (player.mode === 'walk' && !canStand(effectiveLayout, player.position[0], player.position[2])) this.relocate(room, player, player.position);
   }
 
   private take(bucket: Bucket, rate: number, capacity: number): boolean {
