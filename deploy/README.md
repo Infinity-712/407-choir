@@ -49,6 +49,20 @@ tail -n 80 deploy/state/renew.log
 
 ## 更新与回退
 
+### 2026-10-03 前端性能版本
+
+本次前端镜像为 `choir407:frontend-20261003-r1`，通过 `Dockerfile.frontend` 继承 `choir407:20261001`。新 JS、CSS、LOD worker 和首页在独立发布目录构建；未变化的 GLB、布局及 Draco 解码器沿用基础镜像。发布包 SHA256：`344f8b0c5586c041dc3ded6c87f36f57b2f610ed1e22ab507922e98cb4e964e8`。
+
+服务器发布目录：`/home/infinity/apps/407-choir/releases/frontend-20261003-r1`。其中保留发布脚本、新资源、旧首页、旧 Compose 和容器身份核验记录。
+
+为保留在线 WSS 连接，本次先将新哈希资源复制到现有 proxy 容器，逐个通过 HTTPS 核对 SHA256，再原子替换首页。正式 Compose 已指定新前端镜像，但没有执行 `up` 或重建容器。当前运行容器仍标记旧镜像，静态内容已更新；普通 restart 保留容器可写层，未来 recreate 则从新镜像恢复同样的新内容。后续 `compose up` 会触发 proxy 重建，维护时需考虑在线玩家短暂重连。
+
+本次发布前后 app、turn、proxy 容器 ID/启动时间及 Nginx PID 完全一致。续期目录、配置挂载和服务名保持原有路径。
+
+本次回退无需重启服务：持有 `deploy/state/renew.lock`，将发布目录的 `index.before.html` 复制到 proxy 的 `/srv/407/dist/.index-rollback.tmp`，设为 0644 后 `mv` 覆盖首页；同样原子恢复 `compose.before.yaml` 为正式 Compose。保留新哈希资源以服务已经打开的页面；这些页面刷新后使用旧版。
+
+今后发布前端时，先验证新镜像和资源再切换首页。不要删除唯一旧版本或覆盖同名但内容不同的哈希资源。
+
 先运行本机测试/构建。上传新发布包后保留旧镜像 tag，重建/替换 `choir407`，验证新容器再清理旧发布包。
 停用本项目：`docker compose -f deploy/compose.yaml --profile https down`；不会操作其它 Compose 项目。
 IP 证书约6天有效，自动续期日志应定期检查；邮箱暂未提供，证书账户采用无邮箱登记。

@@ -48,7 +48,11 @@ try {
     await expect(page.locator('.room-loading')).toHaveCount(0,{timeout:180000});
     console.log(profile.name+' room ready');
     await page.waitForTimeout(8000);
-    const result={...profile,errors,...await page.evaluate(()=>({renderer:window.__perf.renderer,pointerCoarse:matchMedia('(pointer:coarse)').matches,canvas:[...document.querySelectorAll('canvas')].map(c=>({width:c.width,height:c.height,cssWidth:c.clientWidth,cssHeight:c.clientHeight}))})),measurements:{}};
+    if(await page.evaluate(()=>document.querySelector('canvas')?.dataset.quality==='smooth')){
+      await page.waitForFunction(()=>document.querySelector('canvas')?.dataset.lodReady==='true',{},{timeout:120000});
+      await page.waitForTimeout(2000);
+    }
+    const result={...profile,errors,...await page.evaluate(()=>({renderer:window.__perf.renderer,pointerCoarse:matchMedia('(pointer:coarse)').matches,canvas:[...document.querySelectorAll('canvas')].map(c=>({width:c.width,height:c.height,cssWidth:c.clientWidth,cssHeight:c.clientHeight,dataset:{...c.dataset}}))})),measurements:{}};
     for(const movement of [false,true]){
       if(movement)await page.keyboard.down('w');
       await page.evaluate(()=>{window.__perf.frames=[];window.__perf.record=true;});

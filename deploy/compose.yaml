@@ -18,7 +18,7 @@ services:
       driver: json-file
       options: {max-size: '10m', max-file: '3'}
   proxy:
-    image: choir407:20261001
+    image: choir407:frontend-20261003-r1
     user: '0'
     entrypoint: ['nginx']
     command: ['-g', 'daemon off;']
