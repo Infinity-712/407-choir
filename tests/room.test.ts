@@ -195,22 +195,22 @@ test('distance, hostile object keys, malformed events, and piano ranges are reje
   for (const payload of [{ kind: 'on', midi: 20 }, { kind: 'off', midi: 109 }, { kind: 'on', midi: 60.2 }, { kind: 'on', midi: 60, velocity: Infinity }, { kind: 'sustain', down: 1 }]) assert.equal(rooms.command('a', 'piano', payload).ok, false);
 });
 
-test('join validates room/name, caps rooms at 16, and initializes only real members', () => {
+test('join validates room/name, caps rooms at 20, and initializes only real members', () => {
   const { rooms, join } = setup();
   for (const roomId of ['__proto__', 'constructor', '', 'a'.repeat(33), '../other']) assert.equal(join('invalid', roomId).ok, false);
   assert.equal(rooms.join('invalid', { roomId: '407', name: 'a'.repeat(25), avatar: {} }).ok, false);
-  for (let i = 0; i < 16; i++) assert.equal(join(`player-${i}`).ok, true);
+  for (let i = 0; i < 20; i++) assert.equal(join(`player-${i}`).ok, true);
   assert.equal(join('overflow').ok, false);
-  assert.equal(Object.keys(rooms.getState('407')!.players).length, 16);
+  assert.equal(Object.keys(rooms.getState('407')!.players).length, 20);
   assert.equal(rooms.getState('407')!.players['player-0'].mic, false);
   assert.equal(join('overflow', 'spare').ok, true);
 });
 
-test('sixteen joining players receive separated walkable spawn positions inside the room', () => {
+test('twenty joining players receive separated walkable spawn positions inside the room', () => {
   const { rooms, join } = setup();
-  for (let i = 0; i < 16; i++) assert.equal(join(`arrival-${i}`).ok, true);
+  for (let i = 0; i < 20; i++) assert.equal(join(`arrival-${i}`).ok, true);
   const players = Object.values(rooms.getState('407')!.players);
-  assert.equal(players.length, 16);
+  assert.equal(players.length, 20);
   for (let i = 0; i < players.length; i++) {
     const [x, y, z] = players[i].position;
     assert.ok(x >= -7.82 && x <= 7.82 && z >= -7.82 && z <= 7.82);

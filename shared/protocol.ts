@@ -1,3 +1,5 @@
+import type { ColorWarState } from './color-war';
+
 export type Vec3 = [number, number, number];
 export type AvatarConfig = {
   skin: string; hairColor: string; shirtColor: string; pantsColor: string;
@@ -22,6 +24,6 @@ export type FloorZone = Collider & {height:number};
 export type RoomLayout = {version:number;bounds:{minX:number;maxX:number;minZ:number;maxZ:number};footprint?:Footprint;spawn:Vec3;assets:InteractionAsset[];colliders:Collider[];floors:FloorZone[]};
 export type Player = {id:string;name:string;avatar:AvatarConfig;position:Vec3;yaw:number;mode:Mode;assetId:string|null;mic:boolean;emote:Emote|null;emoteUntil:number;pose:ChoirPose|null;poseAt:number;chat:ChatBubble|null};
 export type PianoEvent = {kind:'on'|'off'|'sustain'|'clear';midi?:number;velocity?:number;down?:boolean;playerId?:string;assetId?:string;at?:number};
-export type RoomState = {roomId:string;players:Record<string,Player>;occupancy:Record<string,string>;notes:Record<string,number[]>;pedals?:Record<string,boolean>;pressedNotes?:Record<string,number[]>;conductor:{ownerId:string|null;bpm:number;playing:boolean;startAt:number;beats:BeatPattern;gesture:ConductorGesture;gestureAt:number};serverTime:number};
+export type RoomState = {roomId:string;players:Record<string,Player>;occupancy:Record<string,string>;notes:Record<string,number[]>;pedals?:Record<string,boolean>;pressedNotes?:Record<string,number[]>;conductor:{ownerId:string|null;bpm:number;playing:boolean;startAt:number;beats:BeatPattern;gesture:ConductorGesture;gestureAt:number};colorWar?:ColorWarState;serverTime:number};
 export type Ack = {ok:boolean;error?:string;id?:string;state?:RoomState};
 export type VoiceSignal = {to:string;from?:string;description?:RTCSessionDescriptionInit;candidate?:RTCIceCandidateInit};

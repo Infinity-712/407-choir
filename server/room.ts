@@ -1,13 +1,16 @@
 import { sanitizeAvatar } from '../shared/avatar.ts';
+import { COLOR_WAR_COMMANDS, COLOR_WAR_RULES } from '../shared/color-war.ts';
+import { ColorWarGame } from './color-war.ts';
 import { canStand, groundHeight, stepPosition } from '../shared/movement.ts';
 import { CHAT_DURATION_MS, CHAT_MAX_CODEPOINTS, CHOIR_POSES, CONDUCTOR_GESTURES, DEFAULT_BUBBLE_STYLE, sanitizeBubbleStyle } from '../shared/social.ts';
 import type { Ack, BeatPattern, ChoirPose, ConductorGesture, Emote, InteractionAsset, PianoEvent, Player, RoomLayout, RoomState, Vec3, VoiceSignal } from '../shared/protocol.ts';
 
-export type RoomOptions = { now?: () => number; onPiano?: (roomId: string, event: PianoEvent) => void };
+export type RoomOptions = { now?: () => number; random?: () => number; onPiano?: (roomId: string, event: PianoEvent) => void };
 type Piano = { held: Set<number>; sounding: Set<number>; sustain: boolean };
 type Bucket = { at: number; tokens: number };
 type Session = { roomId: string; moveAt: number; moveCredit: number; rates: Map<string, Bucket> };
-type Room = { id: string; players: Map<string, Player>; occupancy: Map<string, string>; pianos: Map<string, Piano>; conductor: RoomState['conductor']; dirty: boolean };
+type Room = { id: string; players: Map<string, Player>; occupancy: Map<string, string>; pianos: Map<string, Piano>; conductor: RoomState['conductor']; colorWar: ColorWarGame; dirty: boolean };
+const colorWarCommands = new Set<string>(COLOR_WAR_COMMANDS);
 const ok = (): Ack => ({ ok: true });
 const fail = (error: string): Ack => ({ ok: false, error });
 const object = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -21,12 +24,14 @@ export class RoomController {
   private readonly sessions = new Map<string, Session>();
   private readonly assets: Map<string, InteractionAsset>;
   private readonly now: () => number;
+  private readonly random: () => number;
   private readonly onPiano?: RoomOptions['onPiano'];
   private readonly joinRates = new Map<string, Bucket>();
 
   constructor(private readonly layout: RoomLayout, options: RoomOptions = {}) {
     this.assets = new Map(layout.assets.map(asset => [asset.id, asset]));
     this.now = options.now ?? Date.now;
+    this.random = options.random ?? Math.random;
     this.onPiano = options.onPiano;
   }
 
@@ -40,13 +45,13 @@ export class RoomController {
     const name = payload.name.trim();
     if (!name || [...name].length > 24) return fail('昵称请使用 1–24 个字符');
     const current = this.rooms.get(payload.roomId);
-    if (current && current.players.size >= 16 && !current.players.has(id)) return fail('这个房间已满（最多 16 人）');
+    if (current && current.players.size >= COLOR_WAR_RULES.playerLimit && !current.players.has(id)) return fail('这个房间已满（最多 20 人）');
     const position = this.chooseSpawn(current, id);
     if (!position) return fail('房间入口暂时拥挤，请稍后再试');
     this.leave(id);
     let room = this.rooms.get(payload.roomId);
     if (!room) {
-      room = { id: payload.roomId, players: new Map(), occupancy: new Map(), pianos: new Map(), conductor: { ownerId: null, bpm: 90, playing: false, startAt: 0, beats: 4, gesture: 'beat', gestureAt: 0 }, dirty: true };
+      room = { id: payload.roomId, players: new Map(), occupancy: new Map(), pianos: new Map(), conductor: { ownerId: null, bpm: 90, playing: false, startAt: 0, beats: 4, gesture: 'beat', gestureAt: 0 }, colorWar: new ColorWarGame(this.layout, { now: this.now, random: this.random }), dirty: true };
       for (const asset of this.assets.values()) if (asset.type === 'piano') room.pianos.set(asset.id, { held: new Set(), sounding: new Set(), sustain: false });
       this.rooms.set(room.id, room);
     }
@@ -59,6 +64,7 @@ export class RoomController {
   command(id: string, event: string, payload: unknown): Ack {
     const session = this.sessions.get(id), room = session && this.rooms.get(session.roomId), player = room?.players.get(id);
     if (!session || !room || !player) return fail('请先加入房间');
+    if (room.colorWar.tick(room)) room.dirty = true;
     if (!object(payload)) return fail('消息格式无效');
     const group = event === 'move' ? 'move' : event === 'piano' ? 'piano' : event === 'chat' ? 'chat' : 'control';
     const piano = event === 'piano' && player.mode === 'piano' && player.assetId && room.occupancy.get(player.assetId) === id ? room.pianos.get(player.assetId) : undefined;
@@ -66,6 +72,11 @@ export class RoomController {
     // no-op cleanup messages are still limited, so this cannot amplify a flood.
     const stopsSound = piano && ((payload.kind === 'clear' && (piano.sounding.size > 0 || piano.held.size > 0 || piano.sustain)) || (payload.kind === 'off' && typeof payload.midi === 'number' && piano.held.has(payload.midi)) || (payload.kind === 'sustain' && payload.down === false && piano.sustain));
     if (!stopsSound && !this.rate(session, group)) return fail('操作太频繁，请稍后再试');
+    if (colorWarCommands.has(event)) {
+      const result = room.colorWar.command(id, event, payload, room);
+      if (result.ok) room.dirty = true;
+      return result;
+    }
     switch (event) {
       case 'sync': return { ok: true, state: this.getState(room.id) };
       case 'move': {
@@ -102,6 +113,7 @@ export class RoomController {
   getState(roomId: string): RoomState | undefined {
     const room = this.rooms.get(roomId);
     if (!room) return undefined;
+    if (room.colorWar.tick(room)) room.dirty = true;
     this.expireSocial(room, this.now());
     return {
       roomId,
@@ -111,6 +123,7 @@ export class RoomController {
       pedals: Object.fromEntries([...room.pianos].map(([id, piano]) => [id, piano.sustain])),
       pressedNotes: Object.fromEntries([...room.pianos].map(([id, piano]) => [id, [...piano.held].sort((a, b) => a - b)])),
       conductor: { ...room.conductor },
+      colorWar: room.colorWar.snapshot(),
       serverTime: this.now(),
     };
   }
@@ -120,6 +133,7 @@ export class RoomController {
   flushStates(callback: (roomId: string, state: RoomState) => void): void {
     const now = this.now();
     for (const room of this.rooms.values()) {
+      if (room.colorWar.tick(room)) room.dirty = true;
       this.expireSocial(room, now);
       if (room.dirty) { room.dirty = false; callback(room.id, this.getState(room.id)!); }
     }
@@ -185,11 +199,13 @@ export class RoomController {
     }
     if (asset.type === 'piano') player.mic = false;
     if (asset.type === 'conductor') room.conductor.ownerId = player.id;
+    room.colorWar.onClaim(player, asset, room);
     room.dirty = true;
     return ok();
   }
 
   private release(room: Room, player: Player): void {
+    if (room.colorWar.onRelease(player.id)) room.dirty = true;
     const asset = player.assetId && this.assets.get(player.assetId);
     if (asset) {
       if (asset.type === 'piano') this.clearPiano(room, player, asset.id);
@@ -208,9 +224,11 @@ export class RoomController {
     if (player.mode !== 'piano' || !player.assetId || room.occupancy.get(player.assetId) !== player.id) return fail('请先坐到钢琴前');
     const piano = room.pianos.get(player.assetId)!;
     let event: PianoEvent;
+    let noteEdge = true;
     if (data.kind === 'on' || data.kind === 'off') {
       if (typeof data.midi !== 'number' || !Number.isInteger(data.midi) || data.midi < 21 || data.midi > 108) return fail('琴键无效');
       if (data.velocity !== undefined && (typeof data.velocity !== 'number' || !Number.isFinite(data.velocity) || data.velocity < 0 || data.velocity > 1)) return fail('力度无效');
+      noteEdge = data.kind !== 'on' || !piano.held.has(data.midi);
       if (data.kind === 'on') { piano.held.add(data.midi); piano.sounding.add(data.midi); }
       else { piano.held.delete(data.midi); if (!piano.sustain) piano.sounding.delete(data.midi); }
       event = { kind: data.kind, midi: data.midi, ...(data.kind === 'on' ? { velocity: (data.velocity as number | undefined) ?? .75 } : {}) };
@@ -222,6 +240,7 @@ export class RoomController {
     } else if (data.kind === 'clear') { this.clearPiano(room, player, player.assetId); return ok(); }
     else return fail('钢琴消息无效');
     room.dirty = true;
+    if (noteEdge) room.colorWar.onPiano(player, event, room);
     this.onPiano?.(room.id, { ...event, playerId: player.id, assetId: player.assetId, at: this.now() });
     return ok();
   }
@@ -229,6 +248,7 @@ export class RoomController {
   private clearPiano(room: Room, player: Player, assetId: string): void {
     const piano = room.pianos.get(assetId)!;
     piano.held.clear(); piano.sounding.clear(); piano.sustain = false; room.dirty = true;
+    room.colorWar.onPiano(player, { kind: 'clear', assetId }, room);
     this.onPiano?.(room.id, { kind: 'clear', playerId: player.id, assetId, at: this.now() });
   }
 
@@ -279,7 +299,7 @@ export class RoomController {
 
   private leave(id: string): void {
     const session = this.sessions.get(id), room = session && this.rooms.get(session.roomId), player = room?.players.get(id);
-    if (room && player) { this.release(room, player); room.players.delete(id); room.dirty = true; if (!room.players.size) this.rooms.delete(room.id); }
+    if (room && player) { this.release(room, player); room.colorWar.removePlayer(id, room); room.players.delete(id); room.dirty = true; if (!room.players.size) this.rooms.delete(room.id); }
     this.sessions.delete(id);
   }
 

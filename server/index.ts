@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Server } from 'socket.io';
 import { RoomController } from './room.ts';
+import { COLOR_WAR_COMMANDS } from '../shared/color-war.ts';
 import type { Ack, RoomLayout } from '../shared/protocol.ts';
 import {makeTurnCredentials,type TurnOptions} from './turn.ts';
 
@@ -58,7 +59,7 @@ export async function startServer(options: ServerOptions = {}) {
       }
       reply(ack, result);
     });
-    for (const event of ['move', 'sync', 'claim', 'release', 'avatar', 'mic', 'emote', 'pose', 'chat', 'piano', 'tempo', 'conduct-gesture']) socket.on(event, (payload: unknown, ack: unknown) => reply(ack, rooms.command(socket.id, event, payload)));
+    for (const event of ['move', 'sync', 'claim', 'release', 'avatar', 'mic', 'emote', 'pose', 'chat', 'piano', 'tempo', 'conduct-gesture', ...COLOR_WAR_COMMANDS]) socket.on(event, (payload: unknown, ack: unknown) => reply(ack, rooms.command(socket.id, event, payload)));
     socket.on('signal', (payload: unknown, ack: unknown) => {
       const message = rooms.relaySignal(socket.id, payload);
       if (message) io.to(message.to).emit('signal', message.signal);
