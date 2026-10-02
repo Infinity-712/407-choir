@@ -1,0 +1,81 @@
+{
+  "source": "E:\\Creation\\Codex\\3D modeling\\407-choir\\demo\\revision_20260930_v3\\407_choir_photo_revision_v3.blend",
+  "sourceRevision": "20260930_v3",
+  "sourceSha256": "2cba4118e3952142da24fc1660461de28d51b1ec1c81918d3268486609665c23",
+  "sourceUnchanged": true,
+  "coordinateSystem": "Y-up metres; Blender [x,y,z] -> [x,z,-y]; yaw turns +Z toward +X",
+  "triangles": 1500088,
+  "meshCount": 489,
+  "materialCount": 141,
+  "glbBytes": 20444780,
+  "chairs": 56,
+  "pianos": 4,
+  "conductor": 1,
+  "keyNodes": 352,
+  "floors": 4,
+  "elapsedSeconds": 46.71,
+  "keyAnimation": "Each key mesh has userData.midi and userData.instrumentId. Animate local position.y downward by 0.008m, restore on noteOff. Geometry is world-oriented; no pivot rotation required.",
+  "textures": "Generated procedural wood color/normal UV textures and acoustic ceiling perforation normal; no photos projected.",
+  "materials": "Source Principled metalness, IOR, emissions, clearcoat and split normals retained. Maple planks use roughness .32 / coat roughness .25 for WebGL lights; other roughness values match the source. Night window glass uses a dark reflective PBR fallback; browser environment supplies reflections.",
+  "limitations": [
+    "Room dimensions estimated from photographs.",
+    "Cycles lighting is not baked; browser lighting required.",
+    "Collision uses simplified convex footprints and terrace surfaces."
+  ],
+  "webLayoutChanges": {
+    "reason": "Use v3 authored central aisle and omit archived geometry. Separate movable keyboard furniture to make all instruments accessible.",
+    "clockCenter": [
+      0.0,
+      2.65,
+      -5.18
+    ],
+    "removedChairIds": [
+      "chair_R01_C08",
+      "chair_R01_C09",
+      "chair_R01_C10",
+      "chair_R02_C08",
+      "chair_R02_C09",
+      "chair_R02_C10",
+      "chair_R03_C08",
+      "chair_R03_C09",
+      "chair_R03_C10",
+      "chair_R04_C08",
+      "chair_R04_C09",
+      "chair_R04_C10"
+    ],
+    "omittedSourceObjects": 1956,
+    "omittedGeometryObjects": 1859,
+    "spawn": [
+      -0.6,
+      0,
+      -0.6
+    ],
+    "geometryPolicy": "Honor authored hide_render, ancestor export exclusion, and excluded collections consistently for geometry, colliders and interaction roots.",
+    "digitalConsoleWebPosition": [
+      4.1,
+      0.0,
+      -0.45
+    ],
+    "addedWebBenches": [
+      "Third piano bench",
+      "Digital piano bench"
+    ],
+    "blackBenchWebPosition": [
+      5.2,
+      0.0,
+      -0.45
+    ]
+  },
+  "verification": {
+    "parsedGlbKeys": 352,
+    "midi21to108PerPiano": true,
+    "approachesClearWithAvatarRadius": 0.18,
+    "chairFootprintColliders": 56,
+    "pianoBenchColliders": 4,
+    "interactionHitBoxes": 65,
+    "roomFootprintVertices": 8,
+    "materialRegressionChecks": true,
+    "sourceHashUnchanged": true,
+    "compression": "KHR_draco_mesh_compression; local decoder in assets/draco"
+  }
+}

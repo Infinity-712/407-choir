@@ -1,0 +1,13 @@
+*
+!package.json
+!package-lock.json
+!deploy/
+deploy/*
+!deploy/Dockerfile
+!deploy/runtime/
+!deploy/runtime/**
+!public/
+public/*
+!public/assets/
+public/assets/*
+!public/assets/interaction-layout.json

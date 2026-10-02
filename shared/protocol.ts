@@ -1,0 +1,27 @@
+export type Vec3 = [number, number, number];
+export type AvatarConfig = {
+  skin: string; hairColor: string; shirtColor: string; pantsColor: string;
+  hairStyle: 'bob' | 'crop' | 'buns' | 'swoop';
+  outfit: 'hoodie' | 'tee' | 'overalls';
+  accessory: 'none' | 'glasses' | 'headphones' | 'bow';
+  faceWidth: number; eyeSize: number; eyeSpacing: number;
+  mouth: 'smile' | 'cat' | 'small'; cheek: number;
+};
+export const DEFAULT_AVATAR: AvatarConfig = {skin:'#f4c7a1',hairColor:'#513d37',shirtColor:'#bfa9ed',pantsColor:'#546574',hairStyle:'bob',outfit:'hoodie',accessory:'none',faceWidth:1,eyeSize:1,eyeSpacing:1,mouth:'smile',cheek:0.55};
+export type Mode = 'walk' | 'sit' | 'piano' | 'conduct';
+export type Emote = 'wave' | 'clap' | 'heart';
+export type ChoirPose = 'raise-left' | 'raise-right' | 'raise-both' | 'hand-left-chest' | 'hand-right-chest';
+export type BeatPattern = 2 | 3 | 4;
+export type ConductorGesture = 'beat' | 'cue' | 'crescendo' | 'diminuendo' | 'cutoff';
+export type BubbleStyle = { palette:'cream'|'lavender'|'mint'|'peach';shape:'round'|'cloud' };
+export type ChatBubble = { text:string;style:BubbleStyle;at:number;until:number };
+export type InteractionAsset = {id:string;label:string;type:'chair'|'piano'|'conductor';position:Vec3;rotation:number;approach:Vec3;radius:number;keyPrefix?:string;hitBoxes?:{min:Vec3;max:Vec3}[]};
+export type Footprint = [number,number][];
+export type Collider = {min:[number,number];max:[number,number];id?:string;footprint?:Footprint;minY?:number;maxY?:number};
+export type FloorZone = Collider & {height:number};
+export type RoomLayout = {version:number;bounds:{minX:number;maxX:number;minZ:number;maxZ:number};footprint?:Footprint;spawn:Vec3;assets:InteractionAsset[];colliders:Collider[];floors:FloorZone[]};
+export type Player = {id:string;name:string;avatar:AvatarConfig;position:Vec3;yaw:number;mode:Mode;assetId:string|null;mic:boolean;emote:Emote|null;emoteUntil:number;pose:ChoirPose|null;poseAt:number;chat:ChatBubble|null};
+export type PianoEvent = {kind:'on'|'off'|'sustain'|'clear';midi?:number;velocity?:number;down?:boolean;playerId?:string;assetId?:string;at?:number};
+export type RoomState = {roomId:string;players:Record<string,Player>;occupancy:Record<string,string>;notes:Record<string,number[]>;pedals?:Record<string,boolean>;pressedNotes?:Record<string,number[]>;conductor:{ownerId:string|null;bpm:number;playing:boolean;startAt:number;beats:BeatPattern;gesture:ConductorGesture;gestureAt:number};serverTime:number};
+export type Ack = {ok:boolean;error?:string;id?:string;state?:RoomState};
+export type VoiceSignal = {to:string;from?:string;description?:RTCSessionDescriptionInit;candidate?:RTCIceCandidateInit};

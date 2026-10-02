@@ -1,0 +1,106 @@
+.mobile-places-toggle,.mobile-emote-toggle,.touch-controls,.touch-camera-tools{display:none}
+.emote-actions{display:flex;align-items:center}
+.voice-range-note{font-size:11px;line-height:1.7;color:#887590;margin:-9px 0 0}
+.mic-tuning{font-size:12px;color:#816b90;border:1px solid #e9dfec;border-radius:12px;padding:12px}
+.mic-tuning summary{cursor:pointer;padding:3px 0}
+.mic-tuning label{display:block;padding-top:14px}
+.mic-tuning label>span{display:flex;justify-content:space-between;font-size:11px;margin-bottom:12px}
+.mic-tuning small{display:block;font-size:10px;line-height:1.7;margin-top:10px;color:#9f90a8}
+.help-modal{max-height:calc(100dvh - 32px);overflow:auto}
+
+@media(max-width:760px),(pointer:coarse){
+  .room-page{height:100dvh;overflow:hidden;overscroll-behavior:none;--room-safe-bottom:env(safe-area-inset-bottom,0px);-webkit-tap-highlight-color:transparent}
+  .room-header{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));gap:8px}
+  .room-identity{min-width:0;gap:9px;padding:8px 10px}
+  .room-identity .brand-symbol{width:29px;height:32px}
+  .room-identity .brand-symbol svg{width:18px}
+  .room-identity .brand b{font-size:23px}
+  .room-identity .divider{display:none}
+  .room-identity strong{font-size:11px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .room-identity .status-online,.room-identity .status-offline{font-size:10px}
+  .room-header-actions{gap:6px}
+  .room-header-actions .glass-button,.room-header-actions .icon-button{width:44px;height:44px;min-width:44px;padding:0;justify-content:center}
+  .room-header-actions .glass-button span{display:none}
+  .mobile-places-toggle{display:flex;align-items:center;gap:8px;position:absolute;left:max(12px,env(safe-area-inset-left));top:calc(max(12px,env(safe-area-inset-top)) + 62px);padding:0 13px;height:44px;font-size:12px;z-index:4}
+  .room-places{display:none;top:calc(max(12px,env(safe-area-inset-top)) + 115px);left:max(12px,env(safe-area-inset-left));width:200px;padding:13px;z-index:5;box-shadow:0 8px 30px #35294125}
+  .room-places.is-open{display:block}
+  .room-places>button{min-height:57px;padding:8px 3px;gap:9px}
+  .room-places>button>span:nth-child(2){font-size:12px}
+  .room-places small{font-size:10px}
+  .place-icon{width:33px;height:36px}
+  .place-hint{display:none}
+  .room-dock{bottom:calc(10px + var(--room-safe-bottom));gap:0;max-width:calc(100vw - 16px);padding:6px 8px;border-radius:20px}
+  .room-dock .icon-button,.room-dock .mic-button{width:44px;height:44px;min-width:44px;padding:0;justify-content:center;flex-shrink:0;border-radius:13px}
+  .room-dock .mic-button>span,.room-dock .mic-button>i{display:none}
+  .dock-divider{margin:0 3px;height:22px}
+  .mobile-emote-toggle{display:flex}
+  .emote-actions{display:none;position:absolute;bottom:68px;left:37px;padding:8px;border-radius:17px;background:#fffaf6f7;box-shadow:0 6px 25px #36294226}
+  .emote-actions.is-open{display:flex}
+  .touch-controls{position:absolute;display:flex;flex-direction:column;align-items:center;left:max(18px,env(safe-area-inset-left));bottom:calc(147px + var(--room-safe-bottom));z-index:3;user-select:none;-webkit-user-select:none}
+  .touch-joystick{position:relative;width:116px;height:116px;border-radius:50%;border:1px solid #ffffffbd;background:#fffbf248;backdrop-filter:blur(5px);box-shadow:inset 0 0 0 10px #ffffff25,0 3px 20px #34233f1a;touch-action:none;display:grid;place-items:center}
+  .touch-joystick:disabled{opacity:.35}
+  .joystick-knob{width:48px;height:48px;border-radius:50%;border:1px solid #fffdff;background:#e3d2efed;box-shadow:0 3px 12px #68547135;position:absolute;pointer-events:none}
+  .joystick-cross{width:68px;height:68px;position:absolute;border-radius:50%;border:1px dashed #ffffff7a;pointer-events:none}
+  .touch-control-caption{font-size:9px;color:#fffdf8;text-shadow:0 1px 5px #322636;white-space:nowrap;margin-top:10px}
+  .touch-camera-tools{display:flex;position:absolute;right:max(17px,env(safe-area-inset-right));bottom:calc(160px + var(--room-safe-bottom));flex-direction:column;gap:7px}
+  .touch-camera-tools button{width:44px;height:44px;background:#fffaf1dc;border:1px solid #fff;border-radius:14px;font-size:21px;color:#9075a3;touch-action:manipulation}
+  .interaction-prompt{bottom:calc(83px + var(--room-safe-bottom));padding:7px 8px 7px 12px;gap:9px;max-width:calc(100vw - 24px);min-height:50px;font-size:11px}
+  .interaction-prompt>span:not(.quiet-hint){max-width:165px;white-space:normal;line-height:1.5}
+  .interaction-prompt button{min-height:44px;font-size:12px;padding:8px 14px;flex-shrink:0}
+  .interaction-prompt kbd,.piano-panel kbd{display:none}
+  .quiet-hint{font-size:10px;white-space:normal;line-height:1.5}
+  .side-panel{top:calc(max(12px,env(safe-area-inset-top)) + 64px);left:auto;right:max(12px,env(safe-area-inset-right));width:min(365px,calc(100vw - 24px));max-height:calc(100dvh - 164px - var(--room-safe-bottom));padding:18px}
+  .side-panel-title .icon-button{width:44px;height:44px;flex-shrink:0}
+  .settings-content>label>span,.settings-content input,.mic-tuning summary{font-size:13px}
+  .settings-content input[type=range],.mic-tuning input[type=range]{min-height:30px;touch-action:pan-y}
+  .toggle-row input{width:24px;height:24px}
+  .panel-open .touch-controls,.panel-open .touch-camera-tools{visibility:hidden}
+  .piano-panel{bottom:calc(80px + var(--room-safe-bottom));width:min(720px,calc(100vw - 16px));padding:12px 10px;border-radius:17px}
+  .piano-panel-header{display:block;margin-bottom:10px}
+  .piano-panel-header>div:first-child{margin:0 0 9px}
+  .piano-panel-header strong{font-size:12px}
+  .piano-panel-header small{font-size:9px;line-height:1.5}
+  .piano-tools{display:flex;width:100%;justify-content:flex-start;gap:6px}
+  .piano-tools>button:not(.text-button){min-width:44px;min-height:44px;padding:7px;font-size:14px;touch-action:none}
+  .piano-tools .pedal{margin:0;font-size:11px!important}
+  .piano-tools .text-button{min-height:44px;font-size:11px;margin-left:auto;gap:4px;padding:0 3px}
+  .keyboard{height:138px;gap:3px}
+  .piano-key span{display:none}
+  .piano-key small{font-size:10px}
+  .playing .touch-camera-tools,.playing .mobile-places-toggle,.playing .room-places{display:none}
+  .conduct-panel{bottom:calc(84px + var(--room-safe-bottom));width:calc(100vw - 24px);padding:14px;display:flex;flex-wrap:wrap;gap:12px}
+  .conduct-panel input{width:100px;min-height:30px}
+  .conduct-panel .primary-button,.conduct-panel .text-button{min-height:44px}
+  .beat-display{top:calc(max(12px,env(safe-area-inset-top)) + 69px);right:12px;left:auto;transform:none;padding:10px;font-size:10px;gap:5px}
+  .toast,.room-page~.toast{bottom:calc(82px + env(safe-area-inset-bottom));font-size:12px;line-height:1.6;min-width:0;width:max-content;max-width:calc(100vw - 24px)}
+  .toast button{width:32px;height:32px;flex-shrink:0}
+  .join-fields input{font-size:16px}
+  .studio-page{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+  .help-modal{padding:20px;max-height:calc(100dvh - 24px);overscroll-behavior:contain}
+  .help-modal .primary-button{min-height:44px}
+}
+@media(max-width:360px){
+  .room-identity .brand>div{display:none}.room-identity strong{max-width:100px}
+  .room-dock{padding:5px}.room-dock .icon-button,.room-dock .mic-button{width:43px;min-width:43px}
+  .room-dock .dock-divider{margin:0 2px}
+  .touch-controls{left:12px}.touch-joystick{width:104px;height:104px}
+}
+@media(max-height:520px) and (orientation:landscape){
+  .room-dock{bottom:calc(7px + env(safe-area-inset-bottom));padding:4px 8px}
+  .room-header{top:max(8px,env(safe-area-inset-top))}
+  .mobile-places-toggle{top:65px}
+  .room-places{top:114px;max-height:calc(100dvh - 188px);overflow:auto}
+  .touch-controls{bottom:calc(77px + env(safe-area-inset-bottom));left:max(18px,env(safe-area-inset-left))}
+  .touch-joystick{width:106px;height:106px}.touch-control-caption{font-size:8px}
+  .touch-camera-tools{bottom:calc(100px + env(safe-area-inset-bottom))}
+  .interaction-prompt{bottom:calc(74px + env(safe-area-inset-bottom));max-width:calc(100vw - 300px)}
+  .side-panel{top:64px;max-height:calc(100dvh - 134px);width:min(380px,calc(100vw - 30px))}
+  .piano-panel{bottom:calc(70px + env(safe-area-inset-bottom));padding:9px 12px;width:min(650px,calc(100vw - 140px))}
+  .piano-panel-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .piano-panel-header>div:first-child{margin:0}.piano-panel-header small{display:none}
+  .piano-tools{width:auto;gap:5px}.piano-tools .text-button{margin-left:5px}
+  .keyboard{height:112px}
+  .conduct-panel{bottom:72px;width:min(560px,calc(100vw - 160px))}
+  .beat-display{top:17px;right:130px}
+  .help-grid{gap:12px}.help-modal>p{margin-bottom:12px}.help-grid{margin-bottom:16px}
+}
