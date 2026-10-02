@@ -71,6 +71,7 @@ test('choir poses toggle and typed bubbles share style, remain text, and expire 
     await a.getByRole('textbox', { name: '聊天内容' }).press('Escape');
     await expect(a.locator('.piano-panel')).toBeVisible();
     await a.getByRole('button', { name: '结束演奏' }).click();
+    await expect(a.locator('.piano-panel')).toHaveCount(0);
     await a.locator('.room-places button').filter({ hasText: '指挥台' }).click();
     await expect(a.locator('.conduct-panel')).toBeVisible({ timeout: 30000 });
     await a.getByRole('button', { name: '三拍', exact: true }).click();
