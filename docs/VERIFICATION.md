@@ -9,6 +9,7 @@
 - 采样使用本机 RTX4070 Laptop、Edge headless，移动视口390×844、DPR2并模拟CPU降速4倍；不能据此承诺真实安卓或集显设备帧率。结果保存在未入Git的 artifacts/perf-baseline.json、perf-final.json及对应截图。
 - 完整单元/协议/几何测试110/110，生产构建通过。画质浏览器2/2在独立端口5174/3002通过，覆盖档位记忆、同一画布切换和移动布局。此前多人/琴键/语音/座位浏览器用例通过；一次冷启动Vite重载导致移动测试等待失败，单独复跑通过。
 - 建立本地Git（初始提交fe2d847），网站主目录使用codex/performance；小游戏独立工作树 .worktrees/minigames 使用codex/minigames，安装独立依赖并通过110/110测试。原始照片和Blender工程位于仓库之外；未设置远程仓库。
+- 公网更新后 scripts/verify_public.mjs 通过：受信任HTTPS、两名用户、气泡聊天、钢琴、模拟麦克风实际中继音频、手机布局、UDP/TCP/TLS三种TURN通路，页面错误0。首页及新JS/CSS/worker校验一致；app/turn/proxy以及既有OpenClaw容器身份未改变。
 
 ## 已通过
 
