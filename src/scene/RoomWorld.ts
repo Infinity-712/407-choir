@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { createAvatar } from '../avatar/AvatarRig';
+import { getOccupiedPartyGame } from '../../shared/party-games';
+import { ColorWarEffects } from '../minigames/ColorWarEffects';
+import { COLOR_TEAMS, throwOrigin } from '../../shared/color-war';
 import { RoomLighting } from './RoomLighting';
 import { interactionTargets } from './interactionTargets';
 import { CameraGestures } from './CameraGestures';
@@ -19,6 +22,10 @@ export type WorldOptions={onMove:(position:Vec3,yaw:number,via:Vec3[])=>void;onS
 export class RoomWorld {
   private party=new PartyScene();private baseLayout:RoomLayout;private layoutSignature='';private partyCameraRound='';
   private lighting:RoomLighting;
+  private colorWarEffects:ColorWarEffects;
+  private paintAim=new THREE.ArrowHelper(new THREE.Vector3(0,0,-1),new THREE.Vector3(),1.45,0xed5966,.22,.14);
+  private paintElevation=0;
+  private effectPositions=new Map<string,THREE.Vector3>();
   private quality=new AdaptiveRenderQuality(devicePixelRatio,matchMedia('(pointer:coarse)').matches);
   private pianoBatch?:PianoKeyBatch;private geometryLOD?:RoomGeometryLOD;
   private width=1;private height=1;
@@ -39,6 +46,7 @@ export class RoomWorld {
     this.renderer.domElement.style.touchAction='none';if(host.clientWidth<760)this.distance=4.5;
     this.labels=document.createElement('div');this.labels.className='world-labels';host.append(this.labels);
     this.lighting=new RoomLighting(this.scene,this.camera,this.renderer);
+    this.colorWarEffects=new ColorWarEffects(this.scene,layout);this.paintAim.visible=false;this.scene.add(this.paintAim);
     this.ring=new THREE.Mesh(new THREE.TorusGeometry(.38,.023,6,48),new THREE.MeshBasicMaterial({color:'#af91e7',depthTest:true,transparent:true,opacity:.95}));this.ring.rotation.x=-Math.PI/2;this.ring.visible=false;this.ring.renderOrder=4;this.scene.add(this.ring);
     this.marker=new THREE.Mesh(new THREE.RingGeometry(.10,.16,24),new THREE.MeshBasicMaterial({color:'#91b6a4',side:THREE.DoubleSide,transparent:true,opacity:.8}));this.marker.rotation.x=-Math.PI/2;this.marker.visible=false;this.scene.add(this.marker);
     this.targets=interactionTargets(layout.assets);this.scene.add(...this.targets);
@@ -87,6 +95,8 @@ export class RoomWorld {
   nearest(){let best:InteractionAsset|null=null,d=Infinity;for(const a of this.layout.assets){const distance=Math.hypot(a.approach[0]-this.local.x,a.approach[2]-this.local.z);if(distance<a.radius&&distance<d){best=a;d=distance;}}return best;}
   takeMovement(){const movement={position:this.local.toArray() as Vec3,yaw:this.yaw,via:this.moveTrail};this.moveTrail=[];return movement;}
   reconcilePosition(position:Vec3,yaw:number){this.local.fromArray(position);this.yaw=yaw;this.moveTrail=[];this.path=[];this.pending=null;this.marker.visible=false;}
+  getThrowAim(elevation=this.paintElevation):Vec3{const pitch=THREE.MathUtils.degToRad(THREE.MathUtils.clamp(elevation,-10,45));return [-Math.sin(this.cameraYaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(this.cameraYaw)*Math.cos(pitch)];}
+  setColorWarAim(elevation:number){if(Number.isFinite(elevation))this.paintElevation=THREE.MathUtils.clamp(elevation,-10,45);}
   setTouch(x:number,z:number){this.touch={x,z};this.path=[];this.pending=null;}
   zoom(delta:number){this.distance=THREE.MathUtils.clamp(this.distance+delta,1.4,5.8);}
   setInputEnabled(enabled:boolean){this.input=enabled;if(!enabled){this.keys.clear();this.touch={x:0,z:0};this.path=[];this.pending=null;}}
@@ -115,13 +125,14 @@ export class RoomWorld {
     for(const player of Object.values(state.players)){
       const signature=JSON.stringify(player.avatar);let person=this.people.get(player.id);
       if(!person||person.signature!==signature){if(person){person.rig.dispose();this.scene.remove(person.rig.group);person.label.remove();}const rig=createAvatar(player.avatar);rig.group.scale.setScalar(.84);rig.group.traverse(o=>{if(o instanceof THREE.Mesh){o.castShadow=true;o.receiveShadow=true;}});this.scene.add(rig.group);const label=document.createElement('div');label.className='person-label'+(player.id===self?' self':'');const nameLabel=document.createElement('span');nameLabel.className='person-name';const badge=document.createElement('span');badge.className='party-person-badge';badge.hidden=true;const bubble=document.createElement('div');bubble.className='speech-bubble';bubble.hidden=true;label.append(bubble,badge,nameLabel);this.labels.append(label);person={rig,signature,label,nameLabel,badge,bubble,target:new THREE.Vector3(...player.position),last:new THREE.Vector3(...player.position),mode:player.mode};rig.group.position.fromArray(player.position);this.people.set(player.id,person);}
-      const status=partyBadge(game,player.id);person.badge.hidden=!status;person.badge.textContent=status?.text??'';person.badge.dataset.kind=status?.kind??'';person.label.classList.toggle('party-singer',status?.kind==='singer');
-      const name=player.name+(player.mic?' · ◉':'');if(person.nameLabel.textContent!==name)person.nameLabel.textContent=name;
+      const status=partyBadge(getOccupiedPartyGame(state)==='color-war'?null:game,player.id);person.badge.hidden=!status;person.badge.textContent=status?.text??'';person.badge.dataset.kind=status?.kind??'';person.label.classList.toggle('party-singer',status?.kind==='singer');
+      const team=getOccupiedPartyGame(state)==='color-war'?state.colorWar?.members[player.id]?.team:null;const name=(team?`[${team}] `:'')+player.name+(player.mic?' · ◉':'');if(person.nameLabel.textContent!==name)person.nameLabel.textContent=name;
       const chat=player.chat;
       if(chat){if(person.bubble.textContent!==chat.text){person.bubble.textContent=chat.text;person.bubble.classList.toggle('emoji-only',Array.from(chat.text).length<=16&&/\p{Extended_Pictographic}/u.test(chat.text)&&!/[\p{Letter}\p{Number}]/u.test(chat.text));}if(person.bubble.dataset.palette!==chat.style.palette)person.bubble.dataset.palette=chat.style.palette;if(person.bubble.dataset.shape!==chat.style.shape)person.bubble.dataset.shape=chat.style.shape;}
       person.bubble.hidden=!chat||chat.until<=Date.now()+this.serverOffset;
       person.target.fromArray(player.position);person.mode=player.mode;
     }
+    this.colorWarEffects.setState(state,self);
     const downKeys=state.pressedNotes??state.notes;
     for(const key of this.pressedKeys.keys()){const [asset,note]=key.split(':');if(!downKeys[asset]?.includes(Number(note)))this.key(asset,Number(note),false);}
     for(const [asset,notes]of Object.entries(downKeys))for(const note of notes)this.key(asset,note,true);
@@ -169,10 +180,15 @@ export class RoomWorld {
       item.person.label.style.zIndex=item.person.bubble.hidden?'1':'2';
       placed.push({left,right,top:bottom-item.height,bottom});
     }
+    this.effectPositions.clear();for(const [id,person]of this.people)this.effectPositions.set(id,person.rig.group.position);
+    this.colorWarEffects.update(now,this.effectPositions);
+    const member=this.state?.colorWar?.members[this.self];
+    this.paintAim.visible=!!member&&this.state?.colorWar?.phase==='playing'&&!!me&&['walk','sit'].includes(me.mode)&&this.input;
+    if(this.paintAim.visible&&me){this.paintAim.position.fromArray(throwOrigin({...me,position:this.local.toArray() as Vec3}));this.paintAim.setDirection(new THREE.Vector3(...this.getThrowAim()));this.paintAim.setColor(COLOR_TEAMS.find(t=>t.id===member?.team)!.color);}
     this.lighting.render(t);
   }
   private disposeObject(root:THREE.Object3D,materials=new Set<THREE.Material>()){const textures=new Set<THREE.Texture>(),geometries=new Set<THREE.BufferGeometry>();root.traverse(o=>{if(o instanceof THREE.Mesh){geometries.add(o.geometry);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);}});for(const g of geometries)g.dispose();for(const m of materials){for(const value of Object.values(m))if(value instanceof THREE.Texture)textures.add(value);m.dispose();}for(const t of textures)t.dispose();}
-  dispose(){this.disposed=true;cancelAnimationFrame(this.frame);this.resize.disconnect();this.handlers.forEach(h=>h.target.removeEventListener(h.type,h.listener));for(const p of this.people.values())p.rig.dispose();this.people.clear();this.party.dispose();this.geometryLOD?.dispose();this.lighting.dispose();const materials=new Set<THREE.Material>();this.model?.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});this.pianoBatch?.dispose();this.disposeObject(this.scene,materials);this.pianoNodes.clear();this.pressedKeys.clear();this.decoder.dispose();this.renderer.dispose();this.renderer.forceContextLoss();this.renderer.domElement.remove();this.labels.remove();}
+  dispose(){this.disposed=true;this.colorWarEffects.dispose();this.scene.remove(this.paintAim);this.paintAim.dispose();this.effectPositions.clear();cancelAnimationFrame(this.frame);this.resize.disconnect();this.handlers.forEach(h=>h.target.removeEventListener(h.type,h.listener));for(const p of this.people.values())p.rig.dispose();this.people.clear();this.party.dispose();this.geometryLOD?.dispose();this.lighting.dispose();const materials=new Set<THREE.Material>();this.model?.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});this.pianoBatch?.dispose();this.disposeObject(this.scene,materials);this.pianoNodes.clear();this.pressedKeys.clear();this.decoder.dispose();this.renderer.dispose();this.renderer.forceContextLoss();this.renderer.domElement.remove();this.labels.remove();}
 }
 
 

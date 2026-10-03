@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {PartyScene,partyBadge} from '../src/scene/PartyScene.ts';
 import {RoomWorld} from '../src/scene/RoomWorld.ts';
+import {ColorWarEffects} from '../src/minigames/ColorWarEffects.ts';
 import {createGameChairs,type MusicalChairsState} from '../shared/minigames.ts';
 import {DEFAULT_AVATAR,type Player,type RoomLayout,type RoomState} from '../shared/protocol.ts';
 import {canStand} from '../shared/movement.ts';
@@ -85,8 +86,8 @@ test('clicking a game chair during music does not queue an automatic walk or cla
 
 test('effective layout replaces picking and navigation together, clearing stale routes and restoring furniture',()=>{
   const layout:RoomLayout={version:1,bounds:{minX:-3,maxX:4,minZ:-3,maxZ:4},spawn:[0,0,0],floors:[],assets:[{id:'conductor',type:'conductor',label:'指挥',position:[0,0,0],approach:[0,0,1],radius:1,rotation:0}],colliders:[{id:'Conductor lectern',min:[-.3,-.3],max:[.3,.3]}]};
-  const world=Object.create(RoomWorld.prototype) as RoomWorld,party=new PartyScene();
-  const internals={party,baseLayout:layout,layout,layoutSignature:'',scene:new THREE.Scene(),targets:[],path:[[1,0,1]],moveTrail:[[1,0,1]],pending:layout.assets[0],selected:layout.assets[0],marker:new THREE.Mesh(),options:{onSelect:()=>{}},people:new Map(),pressedKeys:new Map(),pianoNodes:new Map()};
+  const world=Object.create(RoomWorld.prototype) as RoomWorld,party=new PartyScene(),scene=new THREE.Scene(),colorWarEffects=new ColorWarEffects(scene,layout);
+  const internals={party,colorWarEffects,baseLayout:layout,layout,layoutSignature:'',scene,targets:[],path:[[1,0,1]],moveTrail:[[1,0,1]],pending:layout.assets[0],selected:layout.assets[0],marker:new THREE.Mesh(),options:{onSelect:()=>{}},people:new Map(),pressedKeys:new Map(),pianoNodes:new Map()};
   Object.assign(world,internals);
   const snapshot:RoomState={roomId:'r',players:{},occupancy:{},notes:{},conductor:{ownerId:null,bpm:90,playing:false,startAt:0,beats:4,gesture:'beat',gestureAt:0},serverTime:0,minigame:game()};
   world.setState(snapshot,'visitor');
@@ -96,7 +97,7 @@ test('effective layout replaces picking and navigation together, clearing stale 
   assert.equal(canStand(applied.layout,0,0),true);assert.equal(canStand(applied.layout,1.3,1.75),false);
   world.setState({...snapshot,minigame:game('finished')},'visitor');
   assert.equal(applied.layout,layout);assert.equal(applied.targets.length,1);assert.equal(canStand(applied.layout,0,0),false);
-  party.dispose();
+  party.dispose();colorWarEffects.dispose();
 });
 
 test('personal relocation version preserves other players routes and corrects only the relocated local player',()=>{
@@ -105,9 +106,9 @@ test('personal relocation version preserves other players routes and corrects on
   const other:Player={...player,id:'b',position:[2,0,0]};
   const state:RoomState={roomId:'r',players:{a:player,b:other},occupancy:{},notes:{},conductor:{ownerId:null,bpm:90,playing:false,startAt:0,beats:4,gesture:'beat',gestureAt:0},serverTime:0,minigame:game()};
   const layout:RoomLayout={version:1,bounds:{minX:-3,maxX:4,minZ:-3,maxZ:4},spawn:[0,0,0],assets:[{id:"conductor",type:"conductor",label:"指挥",position:[0,0,0],approach:[0,0,1],radius:1,rotation:0}],colliders:[],floors:[]};
-  const party=new PartyScene(),local=new THREE.Vector3(...player.position);
+  const party=new PartyScene(),local=new THREE.Vector3(...player.position),scene=new THREE.Scene(),colorWarEffects=new ColorWarEffects(scene,layout);
   const person={signature:JSON.stringify(DEFAULT_AVATAR),rig:{group:new THREE.Group()},label:{classList:{toggle:()=>{}}},nameLabel:{textContent:''},badge:{hidden:true,textContent:'',dataset:{}},bubble:{hidden:true},target:new THREE.Vector3(),last:new THREE.Vector3(),mode:'walk'};
-  Object.assign(world,{party,baseLayout:layout,layout,layoutSignature:'',scene:new THREE.Scene(),targets:[],people:new Map([['a',person],['b',{...person,rig:{group:new THREE.Group()},target:new THREE.Vector3(),last:new THREE.Vector3()}]]),pressedKeys:new Map(),pianoNodes:new Map(),local,marker:new THREE.Mesh(),options:{onSelect:()=>{}},moveTrail:[],path:[]});
+  Object.assign(world,{party,colorWarEffects,baseLayout:layout,layout,layoutSignature:'',scene,targets:[],people:new Map([['a',person],['b',{...person,nameLabel:{textContent:''},badge:{hidden:true,textContent:'',dataset:{}},rig:{group:new THREE.Group()},target:new THREE.Vector3(),last:new THREE.Vector3()}]]),pressedKeys:new Map(),pianoNodes:new Map(),local,marker:new THREE.Mesh(),options:{onSelect:()=>{}},moveTrail:[],path:[]});
   world.setState(state,'a');local.x+=.2;
   const route=[[1.3,0,2.28]],pending=state.minigame!.chairs[0];Object.assign(world,{path:route,pending});
   const next:RoomState={...state,players:{...state.players,b:{...other,position:[2.1,0,0],positionVersion:1}},minigame:{...game(),teleportVersion:2}};
@@ -119,14 +120,23 @@ test('personal relocation version preserves other players routes and corrects on
   assert.deepEqual(local.toArray(),[1.35,0,2.45]);assert.deepEqual(movement.path,[]);assert.equal(movement.pending,null);
   const restored:RoomState={...relocated,minigame:game('finished'),players:{...relocated.players,a:{...relocated.players.a,position:[1.4,0,2.45],positionVersion:2}}};world.setState(restored,'a');
   assert.deepEqual(local.toArray(),[1.4,0,2.45],'furniture restoration must apply even a small forced relocation');
-  party.dispose();
+  const champion:RoomState={...restored,minigame:{...game('finished'),winnerId:'a'}};world.setState(champion,'a');
+  assert.equal(person.badge.textContent,'🏆 冠军');
+  const paintLobby:RoomState={...champion,colorWar:{phase:'lobby',hostId:'a',round:0,startsAt:0,endsAt:0,members:{a:{team:'S',ready:false,score:0,nextThrowAt:0,scatterUntil:0,immuneUntil:0}},scores:{S:0,A:0,T:0,B:0,P:0},projectiles:[],splashes:[],event:null,winners:[],finishReason:null}};
+  world.setState(paintLobby,'a');
+  assert.equal(person.badge.hidden,true,'a previous chairs champion badge must not cover the next game');
+  assert.equal(person.nameLabel.textContent,'[S] A');
+  world.setState({...paintLobby,minigame:game('music',3),colorWar:{...paintLobby.colorWar!,phase:'finished'}},'a');
+  assert.equal(person.nameLabel.textContent,'A','old paint team letters must not follow players into chairs');
+  party.dispose();colorWarEffects.dispose();
 });
 
 test('each participant round opens a clear arena view once and preserves later camera adjustments',()=>{
   const world=Object.create(RoomWorld.prototype) as RoomWorld,party=new PartyScene();
   const layout:RoomLayout={version:1,bounds:{minX:-6.6,maxX:6.6,minZ:-5.4,maxZ:6},spawn:[0,0,0],assets:[{id:'conductor',type:'conductor',label:'指挥',position:[0,0,0],approach:[0,0,1],radius:1,rotation:0}],colliders:[],floors:[]};
   const state:RoomState={roomId:'r',players:{},occupancy:{},notes:{},conductor:{ownerId:null,bpm:90,playing:false,startAt:0,beats:4,gesture:'beat',gestureAt:0},serverTime:0,minigame:game('lobby')};
-  Object.assign(world,{party,baseLayout:layout,layout,layoutSignature:'',scene:new THREE.Scene(),targets:[],people:new Map(),pressedKeys:new Map(),marker:new THREE.Mesh(),options:{onSelect:()=>{}},cameraYaw:0,pitch:.35,distance:3.8});
+  const scene=new THREE.Scene(),colorWarEffects=new ColorWarEffects(scene,layout);
+  Object.assign(world,{party,colorWarEffects,baseLayout:layout,layout,layoutSignature:'',scene,targets:[],people:new Map(),pressedKeys:new Map(),marker:new THREE.Mesh(),options:{onSelect:()=>{}},cameraYaw:0,pitch:.35,distance:3.8});
   const camera=world as unknown as {cameraYaw:number;pitch:number;distance:number};
   world.setState(state,'a');assert.equal(camera.cameraYaw,0);
   world.setState({...state,minigame:game('countdown')},'a');
@@ -141,5 +151,5 @@ test('each participant round opens a clear arena view once and preserves later c
   world.setState({...state,minigame:game('finished',2)},'a');
   world.setState({...state,minigame:{...game('music',3),alive:['b','c'],eliminated:['a']}},'a');
   assert.deepEqual([camera.cameraYaw,camera.pitch,camera.distance],[.4,.7,4.2]);
-  party.dispose();
+  party.dispose();colorWarEffects.dispose();
 });

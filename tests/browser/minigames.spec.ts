@@ -23,6 +23,11 @@ async function enter(page:Page,name:string,room:string){
   await page.getByRole('button',{name:'走，去小屋'}).click();
   await expect(page.locator('.room-dock')).toBeVisible();await expect(page.locator('.room-loading')).toHaveCount(0,{timeout:60000});
 }
+async function openChairs(page:Page){
+  await page.getByRole('button',{name:'派对游戏',exact:true}).click();
+  await page.getByRole('button',{name:'抢凳子',exact:true}).click();
+  await expect(page.getByTestId('party-panel')).toBeVisible();
+}
 async function snapshot(observer:Socket){
   const response=await emit(observer,'sync');expect(response.ok).toBe(true);expect(response.state).toBeTruthy();return response.state!;
 }
@@ -72,7 +77,7 @@ test('three people play two real rounds through browser controls and the winner 
   try{
     await enter(page,'浏览器冠军',room);
     const observer=await peer(room,'观众',sockets),second=await peer(room,'奶糖',sockets),third=await peer(room,'布丁',sockets);
-    await page.getByRole('button',{name:'派对游戏',exact:true}).click();
+    await openChairs(page);
     await expect(page.getByTestId('party-panel')).toBeVisible();
     await page.getByRole('button',{name:'报名参加',exact:true}).click();
     expect((await emit(second,'minigame',{action:'join'})).ok).toBe(true);
@@ -117,7 +122,7 @@ test('three people play two real rounds through browser controls and the winner 
 test('six-player lobby rejects a seventh participant while the browser can leave and rejoin',async({page})=>{
   const sockets:Socket[]=[];const room=`chairs-cap-${Date.now()}`;
   try{
-    await enter(page,'主持',room);await page.getByRole('button',{name:'派对游戏',exact:true}).click();
+    await enter(page,'主持',room);await openChairs(page);
     await page.getByRole('button',{name:'报名参加',exact:true}).click();
     for(let i=0;i<5;i++){const socket=await peer(room,`伙伴${i+1}`,sockets);expect((await emit(socket,'minigame',{action:'join'})).ok).toBe(true);}
     const seventh=await peer(room,'第七人',sockets);expect((await emit(seventh,'minigame',{action:'join'})).ok).toBe(false);
@@ -135,7 +140,7 @@ test.use({viewport:{width:390,height:844},hasTouch:true,isMobile:true,deviceScal
 test('390px phone shows the game entry, readable rules and working signup without overflow',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await enter(page,'手机玩家',`phone-${Date.now()}`);
-  await page.getByRole('button',{name:'派对游戏',exact:true}).click();
+  await openChairs(page);
   const panel=page.getByTestId('party-panel');await expect(panel).toBeVisible();
   await expect(panel).toContainText('抢凳子');await expect(panel).toContainText('3');await expect(panel).toContainText('6');
   await expect(panel).toContainText('音乐');await expect(panel).toContainText('走动');
@@ -154,7 +159,7 @@ test('phone joystick contributes real movement and the active HUD fits a small l
   try{
     await enter(page,'触屏玩家',room);
     const second=await peer(room,'手机伙伴一',sockets),third=await peer(room,'手机伙伴二',sockets);
-    await page.getByRole('button',{name:'派对游戏',exact:true}).click();
+    await openChairs(page);
     await page.getByRole('button',{name:'报名参加',exact:true}).click();
     expect((await emit(second,'minigame',{action:'join'})).ok).toBe(true);
     expect((await emit(third,'minigame',{action:'join'})).ok).toBe(true);
